@@ -1,0 +1,70 @@
+---
+title: 'Machine Learning: Fitness Trackers'
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+###Reading in Data:
+Read in training and testing data
+```{r}
+setwd("C:/temp")
+training=read.csv('pml-training.csv',stringsAsFactors=FALSE)
+testing=read.csv('pml-testing.csv',stringsAsFactors=FALSE)
+```
+
+###Tidy the Data:
+After inspection of our data, the variables of interest are kept with removal of variables with many NA values, as well as the id, name and timestamp columns. Sensors measurements are kept by using grep and locating the column indexes that are needed. 
+```{r}
+(keepVarsIndexes<-grep("gyros|magnet|^accel|^total_accel|^pitch|^yaw|^roll",names(training)))
+```
+A subset of the original training data is created.
+```{r}
+tidyData<-training[,keepVarsIndexes]
+tidyData$classe<-as.factor(training$classe)
+```
+
+###Split the Data:
+After the train data is tidy, it is split into a mytrain and mytest subset.
+```{r}
+library(caret)
+set.seed(12)
+inTrain <- createDataPartition(tidyData$classe,p=0.75, list=FALSE)
+mytrain <- tidyData[inTrain,]
+mytest  <- tidyData[-inTrain,]
+```
+
+###Cross Validation:
+Cross validation is used to better train the model and avoid underfitting.
+```{r}
+set.seed(543)
+# Number of folds
+tr.control = trainControl(method = "cv", number = 10)
+# cp values
+cp.grid = expand.grid( .cp = (0:10)*0.001)
+```
+
+###Model building:
+rpart is now used since it can also capture non-linear relationships. To training our model,mytrain is used in dataset and the number of folds and cp values calculated in the step prior. After building the model, a prediction is made on the mytest dataset along with usage of the confucion matrix.
+
+```{r}
+rpartFit<-train(classe~.,method='rpart',data=mytrain,
+                trControl = tr.control, tuneGrid = cp.grid)
+predictRPart<-predict(rpartFit,newdata=mytest)
+confusionMatrix(predictRPart,mytest$classe)
+```
+
+### Out of Sample Error
+The model has a 93.6% out of sample accuracy on predicting with mytest dataset. 6.4% is the expected out of sample or generalisation error.
+
+
+
+```{r}
+```
+
+###Predictions
+Prediction for the classe outcome for the testing dataset.
+```{r}
+finaltesting<-testing[,keepVarsIndexes]
+(predictionsSubmit<-predict(rpartFit,newdata=finaltesting))
+```
